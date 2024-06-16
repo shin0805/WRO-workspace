@@ -1,0 +1,1110 @@
+//方向転換 右
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, -30);
+ev3_motor_set_power(EV3_PORT_D, -30);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 >= (right - 80) * -1 * a);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, -20);
+ev3_motor_set_power(EV3_PORT_D, -20);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 >= -40 * a);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, -10);
+ev3_motor_set_power(EV3_PORT_D, -10);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 >= -40 * a);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(200);
+
+//方向転換 左
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, 30);
+ev3_motor_set_power(EV3_PORT_D, 30);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 <= (left - 80) * a);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, 20);
+ev3_motor_set_power(EV3_PORT_D, 20);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 <= 40 * a);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, 10);
+ev3_motor_set_power(EV3_PORT_D, 10);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) + -1) / 2 <= 40 * a);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(200);
+
+
+power = slows;
+gain_rate = two_slow;
+ev3_sta_cyc(TRACE);
+
+//助走
+power = slows;
+gain_rate = two_slow;
+ev3_motor_reset_counts(EV3_PORT_A);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 90);
+
+//うねりながら進む
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_A, slow * -1);
+ev3_motor_set_power(EV3_PORT_D, slow - 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_D) >= -185 * a);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_set_power(EV3_PORT_A, slow * -1 + 20);
+ev3_motor_set_power(EV3_PORT_D, slow);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 170 * a);//180
+
+//アームを下ろす
+ev3_motor_set_power(EV3_PORT_B, 80);
+tslp_tsk(350);
+ev3_motor_stop(EV3_PORT_B, true);
+
+//行まで進む
+power = slow;
+do{
+}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= black);
+ev3_speaker_play_tone(1174.66, 200);
+
+ev3_stp_cyc(TRACE);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(200);
+
+
+
+//色の表示
+if(identifier2[0] == 1){
+  sprintf(color_buffer1, "COLOR_RED___");
+  ev3_lcd_draw_string(color_buffer1, 0,10);
+}else if(identifier2[0] == 2){
+  sprintf(color_buffer1, "COLOR_GREEN_");
+  ev3_lcd_draw_string(color_buffer1, 0,10);
+}else if(identifier2[0] == 3){
+  sprintf(color_buffer1, "COLOR_YELLOW");
+  ev3_lcd_draw_string(color_buffer1, 0,10);
+}else if(identifier2[0] == 4){
+  sprintf(color_buffer1, "COLOR_BLUE__");
+  ev3_lcd_draw_string(color_buffer1, 0,10);
+}
+
+if(identifier2[1] == 1){
+  sprintf(color_buffer2, "COLOR_RED___");
+  ev3_lcd_draw_string(color_buffer2, 0,35);
+}else if(identifier2[1] == 2){
+  sprintf(color_buffer2, "COLOR_GREEN_");
+  ev3_lcd_draw_string(color_buffer2, 0,35);
+}else if(identifier2[1] == 3){
+  sprintf(color_buffer2, "COLOR_YELLOW");
+  ev3_lcd_draw_string(color_buffer2, 0,35);
+}else if(identifier2[1] == 4){
+  sprintf(color_buffer2, "COLOR_BLUE__");
+  ev3_lcd_draw_string(color_buffer2, 0,35);
+}
+
+if(identifier2[2] == 1){
+  sprintf(color_buffer3, "COLOR_RED___");
+  ev3_lcd_draw_string(color_buffer3, 0,60);
+}else if(identifier2[2] == 2){
+  sprintf(color_buffer3, "COLOR_GREEN");
+  ev3_lcd_draw_string(color_buffer3, 0,60);
+}else if(identifier2[2] == 3){
+  sprintf(color_buffer3, "COLOR_YELLOW");
+  ev3_lcd_draw_string(color_buffer3, 0,60);
+}else if(identifier2[2] == 4){
+  sprintf(color_buffer3, "COLOR_BLUE__");
+  ev3_lcd_draw_string(color_buffer3, 0,60);
+}
+
+if(identifier2[3] == 1){
+  sprintf(color_buffer4, "COLOR_RED___");
+  ev3_lcd_draw_string(color_buffer4, 0,85);
+}else if(identifier2[3] == 2){
+  sprintf(color_buffer4, "COLOR_GREEN_");
+  ev3_lcd_draw_string(color_buffer4, 0,85);
+}else if(identifier2[3] == 3){
+  sprintf(color_buffer4, "COLOR_YELLOW");
+  ev3_lcd_draw_string(color_buffer4, 0,85);
+}else if(identifier2[3] == 4){
+  sprintf(color_buffer4, "COLOR_BLUE__");
+  ev3_lcd_draw_string(color_buffer4, 0,85);
+}
+
+//ケーブルの持ち上げ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, 80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 70);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(500);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, -20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 140);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 530);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//ケーブルを下ろす
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, 80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(500);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 600);
+ev3_motor_stop(EV3_PORT_B, true);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//ラインまで進む
+gain_rate = two_slow;
+power = slows;
+ev3_sta_cyc(TRACE);
+
+do{
+}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+ev3_speaker_play_tone(1174.66, 200);
+
+gain_rate = two_slow;
+power = slow;
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+ev3_stp_cyc(TRACE);
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(200);
+
+//左に曲がる
+pturn = 30;
+act_tsk(LEFT_TASK);
+slp_tsk();
+
+//Deviceの回収
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 200);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクを前に出す
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 50);
+
+ev3_motor_set_power(EV3_PORT_C, -5);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 150);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクをおろしきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 300);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 400);
+
+ev3_motor_set_power(EV3_PORT_C, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 700);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+
+//Newtype
+
+//Deviceを回収
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 120);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクを前に出す
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 50);
+
+ev3_motor_set_power(EV3_PORT_C, -5);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 150);
+
+ev3_motor_stop(EV3_PORT_C, true);
+ev3_speaker_play_tone(1174.66, 200);
+tslp_tsk(1000);
+
+//リンクをおろしきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 290);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 260);
+
+ev3_motor_set_power(EV3_PORT_C, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 560);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+
+//New Newtype
+//Deviceを回収
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 120);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクを前に出す
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 50);
+
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 150);
+
+ev3_motor_stop(EV3_PORT_C, true);
+ev3_speaker_play_tone(1174.66, 200);
+tslp_tsk(1000);
+
+//リンクをおろしきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 300);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 270);
+
+ev3_motor_set_power(EV3_PORT_C, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 570);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+
+
+
+//Cableを下ろす
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, 80);
+
+//リンクを出す
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 170);
+ev3_motor_stop(EV3_PORT_C, true);
+
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 900);
+ev3_motor_stop(EV3_PORT_B, true);
+
+tslp_tsk(100);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_set_power(EV3_PORT_B, -80);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 165);
+ev3_motor_stop(EV3_PORT_C, true);
+
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 900);
+ev3_motor_stop(EV3_PORT_B, true);
+
+tslp_tsk(200);
+
+//色に入る
+ht_nxt_color_sensor_measure_rgb(EV3_PORT_4, pRGB4);
+rgb4.b = 250;
+
+ev3_sta_cyc(HT4COLOR);
+slp_tsk();
+
+ev3_stp_cyc(HT4COLOR);
+ev3_stp_cyc(TRACE);
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+ev3_speaker_play_tone(1174.66, 200);
+tslp_tsk(500);
+
+
+//黒のラインを読んで止まる
+ht_nxt_color_sensor_measure_rgb(EV3_PORT_4, pRGB4);
+rgb4.b = 250;
+
+ev3_sta_cyc(HT4BLACK);
+slp_tsk();
+
+ev3_stp_cyc(HT4BLACK);
+ev3_stp_cyc(TRACE22);
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+ev3_speaker_play_tone(1174.66, 200);
+
+//黒のラインのカウント
+ht_nxt_color_sensor_measure_rgb(EV3_PORT_4, pRGB4);
+rgb4.b = 250;
+
+ev3_sta_cyc(HT4BLACK);
+slp_tsk();
+
+ev3_stp_cyc(HT4BLACK);
+ev3_speaker_play_tone(1174.66, 200);
+
+
+//下がる微調節
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_sta_cyc(BACK);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 15);
+ev3_stp_cyc(BACK);
+
+//台形駆動
+ev3_motor_reset_counts(EV3_PORT_A);
+for (k = 0; k < (80 - 30) / 10; k++) {
+  ev3_motor_set_power(EV3_PORT_A, 30 + 10 * k);
+  ev3_motor_set_power(EV3_PORT_D, -30 - 10 * k);
+  do{
+  }while(ev3_motor_get_counts(EV3_PORT_A) <= 20 * k);
+}
+
+ev3_speaker_play_tone(1174.66, 200);
+
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_set_power(EV3_PORT_A, 80);
+ev3_motor_set_power(EV3_PORT_D, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 360);
+ev3_speaker_play_tone(1174.66, 200);
+
+
+ev3_motor_reset_counts(EV3_PORT_A);
+for (k = 0; k < (80 - 10) / 10; k++) {
+  ev3_motor_set_power(EV3_PORT_A, 80 - 10 * k);
+  ev3_motor_set_power(EV3_PORT_D, -80 + 10 * k);
+  do{
+  }while(ev3_motor_get_counts(EV3_PORT_A) <= 30 * k);
+}
+
+
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(200);
+
+
+
+//New New Newtype
+//Deviceを回収
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 120);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクを前に出す
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 50);
+
+ev3_motor_stop(EV3_PORT_C, true);
+ev3_speaker_play_tone(1174.66, 200);
+tslp_tsk(1000);
+
+ev3_motor_set_power(EV3_PORT_C, -5);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 100);
+
+//ev3_motor_stop(EV3_PORT_C, true);
+//ev3_speaker_play_tone(1174.66, 200);
+//tslp_tsk(1000);
+
+//リンクをおろしきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 60);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 270);
+
+ev3_motor_set_power(EV3_PORT_C, 20);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 570);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(200);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 140);
+
+ev3_motor_stop(EV3_PORT_C, true);
+tslp_tsk(2000);
+
+
+//リンクをあげる
+ev3_motor_rotate(EV3_PORT_C, up_link, 10, false);
+
+tslp_tsk(2000);
+
+//リンクをおろしきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -10);
+
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 150 + up_link);
+
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -80);
+
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+
+ev3_motor_stop(EV3_PORT_C, true);
+
+
+
+
+//振動
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, 10, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 10);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, -20, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 20);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, 20, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 20);
+
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, -10, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 10);
+
+tslp_tsk(2000);
+
+//リンクをたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 420);//315
+
+ev3_motor_rotate(EV3_PORT_C, 222, 20, false);//300
+tslp_tsk(2000);
+
+//トレースの開始
+gain_rate = two_slow;
+power = slows;
+integral = 0;
+diff[0] = 0;
+diff[1] = 0;
+ev3_sta_cyc(TRACE);
+
+
+//前角度
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+//片黒センサ
+do{
+}while(ev3_color_sensor_get_reflect(EV3_PORT_3) >= black || ev3_color_sensor_get_reflect(EV3_PORT_2) >= white);
+ev3_speaker_play_tone(1174.66, 200);
+
+//curve
+curve = ;
+act_tsk(CURVE_TASK);
+slp_tsk();
+
+
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_stop(EV3_PORT_D, true);
+tslp_tsk(timer);
+
+//アームを下ろす
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, 970, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) <= 970);
+
+
+//アームをあげる
+ev3_motor_reset_counts(EV3_PORT_B);
+ev3_motor_rotate(EV3_PORT_B, -970, 80, false);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 970);
+
+//連続の行読み
+for (k = 0; k < 5; k++) {
+  if(k == 4){
+    gain_rate = one_slow;
+    power = slows;
+  }
+
+  ht_nxt_color_sensor_measure_rgb(EV3_PORT_4, pRGB4);
+  rgb4.g = 250;
+
+  ev3_sta_cyc(HT4BLACK);
+  slp_tsk();
+
+  ev3_stp_cyc(HT4BLACK);
+  ev3_speaker_play_tone(1174.66, 200);
+
+  if(k != 4){
+    ev3_motor_reset_counts(EV3_PORT_A);
+    ev3_motor_reset_counts(EV3_PORT_D);
+    do{
+    }while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= angle);
+  }
+}
+
+//連続の行読み
+for (k = 0; k < 4; k++) {
+  if(k == 3){
+    gain_rate = one_slow;
+    power = slow;
+  }
+
+  do{
+  }while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= black);
+  ev3_speaker_play_tone(1174.66, 200);
+
+  if(k != 3){
+    ev3_motor_reset_counts(EV3_PORT_A);
+    ev3_motor_reset_counts(EV3_PORT_D);
+    do{
+    }while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= angle);
+  }
+}
+
+
+//助走
+gain_rate = one_slow;
+power = slows;
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_reset_counts(EV3_PORT_D);
+do{
+}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 150);
+
+gain_rate = one_fast;
+power = fast;
+
+//リンクをあげる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= up_device + 140);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//リンクを前に下ろす
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, -80);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//リンクを中間までたたむ
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 270);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//リンクをたたみきる
+ev3_motor_reset_counts(EV3_PORT_C);
+ev3_motor_set_power(EV3_PORT_C, 30);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+ev3_motor_stop(EV3_PORT_C, true);
+
+//右を向く(前)
+ev3_motor_stop(EV3_PORT_A, true);
+ev3_motor_reset_counts(EV3_PORT_D);
+ev3_motor_set_power(EV3_PORT_D, slow);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 30);
+ev3_motor_set_power(EV3_PORT_D, fast);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 450);
+ev3_motor_set_power(EV3_PORT_D, slow);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 500);
+
+//左を向く(前)
+ev3_motor_stop(EV3_PORT_D, true);
+ev3_motor_reset_counts(EV3_PORT_A);
+ev3_motor_set_power(EV3_PORT_A, slow * -1);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 30);
+ev3_motor_set_power(EV3_PORT_A, fast * -1);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 450);
+ev3_motor_set_power(EV3_PORT_A, slow * -1);
+do{
+}while(ev3_motor_get_counts(EV3_PORT_A) <= 500);
+
+//直進
+power = slows;
+ev3_sta_cyc(FOWARD);
+
+ev3_stp_cyc(FOWARD);
+
+//後進
+power = slows;
+ev3_sta_cyc(BACK);
+
+ev3_stp_cyc(BACK);
+
+//行まで進む
+power = slow;
+do{
+}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= black);
+ev3_speaker_play_tone(1174.66, 200);
+
+
+//広めの横幅350mm
+//狭めの横幅250mm
+//広めの縦幅210mm
+//狭めの縦幅170mm
+
+
+/*
+[s1 色を決める4つのブロックを全て回収]
+対応時間 20分
+試走回数 2回
+竸技時間 1:23
+変更内容
+・ブロックを読み終わったあと、回収の動きをいれる
+
+
+[s2 白のデバイスを回収]
+対応時間 1時間27分
+試走回数 9回
+竸技時間 1:32
+変更内容
+・黄色のデバイスを入れた後、左に方向転換をはじめとして白のデバイスを回収する動きを追加する
+
+
+[s3 ケーブルを真ん中にはしわたす　青黄]
+対応時間 40分
+試走回数 5回
+竸技時間 1:25
+変更内容
+・黄色のデバイスを入れた後、左に方向転換をはじめとしてケーブルをはしわたす動きを追加する
+
+[s4 ケーブルを真ん中にはしわたす　赤緑]
+対応時間 16分
+試走回数 3回
+竸技時間 1:24
+変更内容
+・1本目のケーブルを取りに行く前に、ケーブルをはしわたす動きを追加する
+
+[s5 ケーブルを真ん中にはしわたす　緑黄]
+対応時間 19分
+試走回数 2回
+竸技時間 1:23
+変更内容
+・2本目のケーブルをおいた後から、ケーブルを持ち上げ、はしわたす動きを追加する
+
+[s6 ケーブルを真ん中にはしわたす　赤青]
+対応時間 20分
+試走回数 3回
+竸技時間 1:29
+変更内容
+・黄色のデバイスを入れた後、左に方向転換をはじめとしてケーブルを持ち上げ、はしわたす動きを追加する
+
+[s7 デバイスを持ってかえる　青黄]
+対応時間 30分
+試走回数 3回
+竸技時間 1:25
+変更内容
+・黄色のデバイスを入れた後、左に方向転換をはじめとしてデバイスを回収する動きを追加する
+・ゴールに入るうねりをslowsからslowへ
+
+[s8 デバイスを持ってかえる　赤緑]
+対応時間 51分
+試走回数 5回
+竸技時間 1:34
+変更内容
+・黄色のデバイスを入れた後、デバイスを回収する動きを追加する
+・ゴールに入るうねりをslowsからslowへ
+
+[s9 デバイスを持ってかえる　緑黄]
+対応時間 31分
+試走回数 6回
+竸技時間 1:30
+変更内容
+・ブロックを読み終わった後にデバイスを回収する動きを追加する
+
+[s10 デバイスを持ってかえる　赤青]
+対応時間 12分
+試走回数 3回
+竸技時間 1:33
+変更内容
+・ブロックを読み終わった後にデバイスを回収する動きを追加する
+
+[s11 デバイスを持ってかえる　方位磁石]
+対応時間 20分
+試走回数 3回
+竸技時間 1:22
+変更内容
+・ブロックを読み終わった後にデバイスを回収する動きを追加する
+
+[s12 白いデバイスを指定された場所へ]
+対応時間 3時間20分
+試走回数 n回
+竸技時間
+変更内容
+・ブロックをよむ変数を追加して、追加でブロックをよむ
+・黄色のデバイスを入れた後、白いデバイスを移動させる動きを追加する
+・ゴールインがHTでは誤認識するためにライトセンサーをつかってゴールインする
+
+*/
+
+
+
+
+
+
+
+
+/*
+[s1 コントローラーが一つ増えてゴールエリアへ]
+対応時間 18分
+試走回数 2回
+竸技時間 1:30
+変更内容
+・最後の船から壁によるターンをno_colorのあるほうにする
+・no_colorのコントローラーを回収する動きをはさむ
+
+
+[s2 コンテナ(白)が1つ増えてあまりのコントローラーのところへ]
+対応時間 47分
+試走回数 4回
+竸技時間 1:37
+変更内容
+・yes_containerに5をいれる
+・1回目の船の作業終了後、yes_containerにno_colorをいれる
+・ループ回数を1増やす
+・コントローラーの入れ替えの後の方向転換の後に
+　if(k == 2){
+　 break;
+　}
+　をはさむ
+・ループの最後に
+　if(k == 1){
+　　for (j = 0; j < 4; j++) {
+　　　container[j] = yes_container[j];
+　　}
+　}
+　をはさむ
+・最後の壁による動きを削除
+・かえるまえにrotation_taskを起動
+・sl1を参考に帰る動きを作成(change_taskをぬく)
+・counter_aに1 or 2をいれる
+
+
+[s3 コンテナ(あまりの色)が1つ増えてあまりのコントローラーのところへ]
+対応時間 19分
+試走回数 3回
+竸技時間 1:42
+変更内容 (sl2をベースに行う)
+・(yes_containerに5をいれるのをやめる)
+・左向きに発進し、コントローラーの色をよむ
+・scanをサプライズルールで追加された色をよまないようにする 分岐侵入不可変数をyes_containerにする
+
+
+[s4 最初にブロックを持って海へ]
+対応時間 1時間 20分
+試走回数 8回
+竸技時間 1:40
+変更内容
+・船の穴場を探すプログラムを最初に挟む(変数counter_s、counter_s2が追加されている)
+
+
+[s5 4色ゲームになる]
+対応時間 30分
+試走回数 3回
+竸技時間 1:47
+変更内容
+・ship2を3つから4つへ
+・船よみを4つに対応
+・ループ数を増やす
+・最初に壁よりの掛け算の変数をship2[2]からship2[3]にする 2箇所存在
+
+
+[s6 最初にフード or コントローラー持って船へ]
+対応時間 43分
+試走回数 6回
+竸技時間 1:47
+変更内容
+・コントローラーの色を読む
+・no_colorの船を探して下ろす動作を最初にはさむ
+
+[s7 交点にブロックがあってゴールエリアへ]
+対応時間 33分
+試走回数 6回
+竸技時間 1:39
+変更内容
+・最初に取りに行く動作をつくる
+・最後のゴールインの角度を250から200にして、stopを惰性(false)にする
+
+[s8 交点にブロックがあって海へ]
+対応時間 1時間
+試走回数 6回
+竸技時間 1:49
+変更内容
+・最初に交差点にあるブロックを取る動きをつくる
+・船の穴場を探すプログラムをつくる(変数counter_s、counter_s2が追加されている)
+
+[s9 最初にコンテナをもって最初にないところへ]
+対応時間 1時間47分
+試走回数 7回
+竸技時間 1:40
+変更内容
+・最後の壁よりのターンを必ず左側へ
+・スタートエリアにコンテナを回収して基準点へ
+・no_containerの場所へ　
+・catchのアーム下げるのを分岐でよける
+
+[s10 コントローラーのない位置にコンテナを増やし、最初のないところへ]
+対応時間 2時間
+試走回数 7回
+竸技時間 1:46
+変更内容
+・最後の壁よりのターンをno_colorによる分岐に
+・no_colorのコントローラーへ
+・コントローラーの動きも変化してる
+・no_containerの場所へ　
+
+[s11 船が3つ増えて全部押し出す]
+対応時間 1時間
+試走回数 5回
+竸技時間 1:37
+変更内容
+・船読みのところを、4色以外の色で0以外を読んだら押し込むプログラムをはさむ
+・アームをたたむコマンドを場合によってよける
+・counter_dの判断基準注意
+
+[s12 船が陸地（線の上）にあって海へ]
+対応時間 3時間
+試走回数 14回
+竸技時間 1:41
+変更内容
+・最後に船を押し込むプログラムをつくる
+
+[s13 seaエリアの船を陸地にもどす]
+対応時間 5時間
+試走回数 14回
+竸技時間 1:48
+変更内容
+・no_shipの作成
+・yes_shipの作成
+・j += 1;の位置
+・no_shipの特定
+・サプライズで増えた船を探す動きをはさむ
+
+[s14 交点にあるボールを倒さない]
+対応時間 3時間30分
+試走回数 17回
+竸技時間 1:21
+変更内容
+・countainer[3]をボールを避けながらよむ動きをつくる
+・回収の順を逆順にかえる　2回目以降にくわえて1回目のcounter_cも 1回目においては必ず左側の壁に
+・countainer[2]のボールを避ける分岐をはさむ
+
+[s15 コントローラーの乗った船がseaエリアに追加され、コントローラーは回収し、船は陸地にもどす]
+対応時間 1時間40分
+試走回数 4回
+竸技時間 1:56
+変更内容
+・no_shipの作成
+・yes_shipの作成
+・j += 1;の位置
+・no_shipの特定
+・サプライズで増えた船を探す動きをはさむ
+・コントローラーをひろいあげる動きをはさむ
+
+[s16 白色のコンテナ、コントローラーが増えてコントローラーをコンテナの上にのせる]
+対応時間
+試走回数 回
+竸技時間
+変更内容
+
+[s17 4色ゲームになって、コンテナはseaエリアにおかれる]
+対応時間 9時間
+試走回数 n回
+竸技時間 2:04
+変更内容
+・最初に船を読みに行く　コンテナも読んで、船と区別
+・最後にコンテナをseaエリアに取りに行って4つめの動きとする
+
+[s18 あまりのコントローラーをあまりのコンテナの上におく]
+対応時間
+試走回数
+竸技時間
+変更内容
+・
+
+[s19 コンテナのあまりの位置にコントローラーをおいて回収]
+対応時間 1時間
+試走回数
+竸技時間 1:31
+変更内容
+・yes_contaienrに5をいれる
+・最後の壁よりのターンの方向をno_contaienr依存にする
+・コントローラー回収の動きをはさむ
+*/

@@ -1,0 +1,5015 @@
+#include "ev3api.h"
+#include "app.h"
+#include "stdlib.h"
+#include "math.h"
+
+#if defined(BUILD_MODULE)
+#include "module_cfg.h"
+#else
+#include "kernel_cfg.h"
+#endif
+
+#define DEBUG
+
+#ifdef DEBUG
+#define _debug(x) (x)
+#else
+#define _debug(x)
+#endif
+
+//PID制御の変数
+double kp, ki, kd, gain_rate;
+double delta_t = 0.004;
+int diff[2];
+int integral, p, i, d, sensor2, sensor3, motor, count, power, sensor1, pid;
+
+//HTのよみこみの変数
+uint8_t *pHT = 0;
+uint8_t ht = 0;
+
+rgb_raw_t *pRGB = 0;
+rgb_raw_t rgb;
+
+uint8_t h_rgb;
+
+//速度の変数
+int fast = -80;
+int slow = -20;
+int slows = -30;
+
+//gainの変数
+double two_fast = 2.14;//2.14
+double two_slow = 2.14;//2.14
+double one_fast = 4.0;//4.0
+double one_slow = 1.9;//1.9
+
+//方向転換の変数
+int right = 180;//185
+int left = 180;
+
+int right_curve = 510;//545
+int left_curve = 515;//530
+
+//センサーの閾値
+int black = 20;
+int white = 40;
+int threshold = 25;
+
+//三角関数
+double x;
+double y;
+//char color_buffer1[30];
+
+//identifierの変数
+int identifier[4];  //カラーごとの場所
+int identifier2[4]; //場所ごとのカラー
+int twice;
+
+//device
+int device[2]; //白の位置
+
+//ループ
+int k ;
+
+//方向転換
+int pturn;
+
+//カウンター
+int drop;
+
+
+void trace_task(intptr_t unused) {
+	kp = 0.34 * gain_rate;//0.36
+	ki = kp / 0.3;
+	kd = kp * 0.075;
+
+	diff[0] = diff[1];
+	sensor2 = ev3_color_sensor_get_reflect(EV3_PORT_2);
+	sensor3 = ev3_color_sensor_get_reflect(EV3_PORT_3);
+
+	diff[1] = sensor2 - sensor3;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >= 0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, power * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, power);
+	}
+}
+
+
+void trace2_task(intptr_t unused) {
+	kp = 0.33 * gain_rate;
+	ki = kp / 0.3;
+	kd = kp * 0.075;
+
+	diff[0] = diff[1];
+	sensor2 = ev3_color_sensor_get_reflect(EV3_PORT_2);
+
+	diff[1] = sensor2 - threshold;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >= 0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, power * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, power);
+	}
+}
+
+
+void trace3_task(intptr_t unused) {
+	kp = 0.33 * gain_rate;
+	ki = kp / 0.3;
+	kd = kp * 0.075;
+
+	diff[0] = diff[1];
+	sensor3 = ev3_color_sensor_get_reflect(EV3_PORT_3);
+
+	diff[1] = sensor3 - threshold;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >=0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, power);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, power * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}
+}
+
+
+void trace22_task(intptr_t unused) {
+	kp = 0.3 * gain_rate;//0.3
+	ki = kp / 0.3;
+	kd = kp * 0.075;
+
+	diff[0] = diff[1];
+	sensor2 = ev3_color_sensor_get_reflect(EV3_PORT_2);
+
+	diff[1] = sensor2 - threshold;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >= 0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, power);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, power * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}
+}
+
+
+void trace33_task(intptr_t unused) {
+	kp = 0.3 * gain_rate;//0.3
+	ki = kp / 0.3;
+	kd = kp * 0.075;
+
+	diff[0] = diff[1];
+	sensor3 = ev3_color_sensor_get_reflect(EV3_PORT_3);
+
+	diff[1] = sensor3 - threshold;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >= 0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, power * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, power);
+	}
+}
+
+
+void arm_task(intptr_t unused) {
+	x = ev3_motor_get_counts(EV3_PORT_C) * 0.8 / 3 / 180 * 3.14;
+	y = 120 * (1 - cos(x));
+
+	/*
+	sprintf(color_buffer1, "NUMBER-%f-" ,y);
+	ev3_lcd_draw_string(color_buffer1, 0,10);
+	*/
+
+	kp = 0.3 * gain_rate;//0.3
+	ki = kp / 0.3;
+	kd = kp * 0.075 * 0;
+
+	diff[0] = diff[1];
+
+	diff[1] = ev3_motor_get_counts(EV3_PORT_D) - y;
+
+	integral += (diff[0] + diff[1]) / 2.0 * delta_t;
+
+	p = kp * diff[1];
+	i = ki * integral;
+	d = kd * (diff[1] - diff[0]) / delta_t;
+
+	pid = p + i + d;
+
+	if(pid >= 0) {
+		motor = power + pid;
+		ev3_motor_set_power(EV3_PORT_A, motor * -1);
+		ev3_motor_set_power(EV3_PORT_D, motor);
+	}else{
+		motor = power - pid;
+		ev3_motor_set_power(EV3_PORT_A, motor);
+		ev3_motor_set_power(EV3_PORT_D, motor * -1);
+	}
+}
+
+
+void right_task(intptr_t unused) {
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1);
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1);
+	}while(ev3_motor_get_counts(EV3_PORT_A) >= -50);
+
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1 - 10);
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1 - 10);
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= 30);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1 + 10);
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1 + 10);
+	}while(ev3_motor_get_counts(EV3_PORT_A) >= -70);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	wup_tsk(MAIN_TASK);
+}
+
+
+void left_task(intptr_t unused) {
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn);
+		ev3_motor_set_power(EV3_PORT_D, pturn);
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 50);
+
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn + 10);
+		ev3_motor_set_power(EV3_PORT_D, pturn + 10);
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_3) >= 30);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn - 10);
+		ev3_motor_set_power(EV3_PORT_D, pturn - 10);
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 70);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	wup_tsk(MAIN_TASK);
+}
+
+
+void rotation_task(intptr_t unused) {
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1);//30
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1);
+	}while(ev3_motor_get_counts(EV3_PORT_A) >= -300);
+
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1 - 10);//40
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1 - 10);
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	do{
+		ev3_motor_set_power(EV3_PORT_A, pturn * -1 + 10);//30
+		ev3_motor_set_power(EV3_PORT_D, pturn * -1 + 10);
+	}while(ev3_motor_get_counts(EV3_PORT_A) >= -70);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	wup_tsk(MAIN_TASK);
+}
+
+
+void ht1_task(intptr_t unused) {
+	ht_nxt_color_sensor_measure_color(EV3_PORT_1, pHT);
+}
+
+
+void ht1rgb_task(intptr_t unused) {
+	ht_nxt_color_sensor_measure_rgb(EV3_PORT_1, pRGB);
+	if(h_rgb < rgb.r){
+		h_rgb = rgb.r;
+	}
+}
+
+
+void drop_task(intptr_t unused) {
+	if(drop == 1){
+		//左向きに下ろす
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, -10);
+		ev3_motor_set_power(EV3_PORT_D, 10);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 85);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクをおろしきる
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//リンクをたたむ
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_set_power(EV3_PORT_A, slow);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 20);
+		ev3_motor_stop(EV3_PORT_A, true);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_A) <= 20);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow);
+		ev3_motor_set_power(EV3_PORT_D, slow * -1);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 55);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}else if(drop == 2){
+		//前向きに下ろす
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, -10);
+		ev3_motor_set_power(EV3_PORT_D, 10);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 40);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクを少しおろす
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+		tslp_tsk(200);
+
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, -10);
+		ev3_motor_set_power(EV3_PORT_D, 10);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 70);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクをおろしきる
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 170);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow);
+		ev3_motor_set_power(EV3_PORT_D, slow * -1);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 30);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクをたたむ
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 700);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+	}else if(drop == 3){
+		//右向きに下ろす
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, -10);
+		ev3_motor_set_power(EV3_PORT_D, 10);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 85);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクをおろしきる
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//リンクをたたむ
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_D, slow * -1);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_D) <= 20);
+		ev3_motor_stop(EV3_PORT_D, true);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 20);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow);
+		ev3_motor_set_power(EV3_PORT_D, slow * -1);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 55);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}else if(drop == 4){
+		//後ろ向きに下ろす
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, -10);
+		ev3_motor_set_power(EV3_PORT_D, 10);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 75);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//リンクをおろしきる
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//リンクをたたむ
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//下がる
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow);
+		ev3_motor_set_power(EV3_PORT_D, slow * -1);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 65);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}
+
+
+	wup_tsk(MAIN_TASK);
+}
+
+
+void main_task(intptr_t unused) {
+	ev3_lcd_set_font (EV3_FONT_MEDIUM);
+	ev3_sensor_config(EV3_PORT_2, COLOR_SENSOR);	//右カラーセンサー
+	ev3_sensor_config(EV3_PORT_3, COLOR_SENSOR);	//左カラーセンサー
+	ev3_sensor_config(EV3_PORT_1, HT_NXT_COLOR_SENSOR);	//右前HTセンサー
+	ev3_sensor_config(EV3_PORT_4, COLOR_SENSOR);	//左前カラーセンサー
+	ev3_motor_config(EV3_PORT_A, MEDIUM_MOTOR);	//右タイヤ
+	ev3_motor_config(EV3_PORT_D, MEDIUM_MOTOR);	//左タイヤ
+	ev3_motor_config(EV3_PORT_B, MEDIUM_MOTOR);	//アーム
+	ev3_motor_config(EV3_PORT_C, MEDIUM_MOTOR);	//リンク
+
+	ev3_speaker_play_tone(1174.66, 200);
+
+	do{
+	}while(ev3_button_is_pressed(ENTER_BUTTON) == false);
+
+	tslp_tsk(500);
+
+	ev3_color_sensor_get_reflect(EV3_PORT_2);
+	ev3_color_sensor_get_reflect(EV3_PORT_3);
+	ev3_color_sensor_get_reflect(EV3_PORT_4);
+
+	ev3_lcd_set_font(EV3_FONT_MEDIUM);
+
+	//HT色読み さす
+	pHT = &ht;
+
+	pRGB = &rgb;
+
+	/*実験
+	while(1){
+		do{
+		}while(ev3_button_is_pressed(ENTER_BUTTON) == false);
+
+		tslp_tsk(500);
+
+	}
+	*/
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 265);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	/*
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 245);
+
+	/*
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	/*ラインにのせる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) + ev3_motor_get_counts(EV3_PORT_D) * -1) / 2 <= 0);
+	*/
+
+	//identifierをよむ
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE22);
+
+	twice = 0;
+	k = 0;
+
+	do{
+		ht_nxt_color_sensor_measure_color(EV3_PORT_1, pHT);
+		*pHT = 0;
+		do{
+			ev3_sta_cyc(HT1);
+			if((*pHT == 1 || *pHT == 7 || *pHT == 8 || *pHT == 9 || *pHT == 10) && identifier[0] == 0 && twice == 0) {
+				ev3_speaker_play_tone(1975.53, 200);
+				identifier[0] = k + 1;
+				identifier2[k] = 1;
+				k += 1;
+				twice = 1;
+			}else if((*pHT == 4 || *pHT == 13) && identifier[1] == 0 && twice == 0) {
+				ev3_speaker_play_tone(1396.91, 200);
+				identifier[1] = k + 1;
+				identifier2[k] = 2;
+				k += 1;
+				twice = 1;
+			}else if((/**pHT == 5 || */*pHT == 6) && identifier[2] == 0 && twice == 0) {
+				ev3_speaker_play_tone(880.00, 200);
+				identifier[2] = k + 1;
+				identifier2[k] = 3;
+				k += 1;
+				twice = 1;
+			}else if((*pHT == 2 ||*pHT == 3 || *pHT == 12) && identifier[3] == 0 && twice == 0) {
+				ev3_speaker_play_tone(261.63, 200);
+				identifier[3] = k + 1;
+				identifier2[k] = 4;
+				k += 1;
+				twice = 1;
+			}else{
+
+			}
+		}while(twice == 0);
+
+		ev3_stp_cyc(HT1);
+
+		twice = 0;
+
+	}while(identifier2[3] == 0);
+
+	//ラインまで進む
+	power = slows;
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) <= white);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE22);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//North Cableに向かう
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	for (k = 0; k < 5; k++) {
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	//進みながらアームを下ろす
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	gain_rate = two_slow;
+	power = slows;
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 500);
+
+	ev3_stp_cyc(TRACE2);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 70);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	/*
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 295);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルまで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 90);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを拾う
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 140);
+
+	//ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 530);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//方向転換
+	pturn = 20;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	/*
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 290);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	gain_rate = one_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//Device 0行2列目をよむ
+	h_rgb = 0;
+	ev3_sta_cyc(HT1RGB);
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(HT1RGB);
+
+	if(h_rgb > 100){
+		//Device 0行0列目の回収
+		device[0] = 2;
+
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//ラインまで進む
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//ラインを超える
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右を向く
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//deviceを回収
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//方向転換
+		pturn = 20;
+		act_tsk(ROTATION_TASK);
+		slp_tsk();
+
+		//青に入る
+		//色まで進む
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//回す
+		if(identifier[3] == 1){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 4;
+
+		}else if(identifier[3] == 2){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, -50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 1;
+
+		}else if(identifier[3] == 3){
+			drop = 2;
+
+		}else if(identifier[3] == 4){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 3;
+
+		}
+
+		do{
+		}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(500);
+
+		//deviceを下ろす
+		act_tsk(DROP_TASK);
+		slp_tsk();
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//左に曲がる
+		act_tsk(LEFT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+	}else{
+		//Device 0行2列目の回収
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 35);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右を向く
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//deviceを回収
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//方向転換
+		pturn = 20;
+		act_tsk(ROTATION_TASK);
+		slp_tsk();
+
+		//赤に入る
+		//色まで進む
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//回す
+		if(identifier[0] == 1){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 4;
+
+		}else if(identifier[0] == 2){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, -50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 1;
+
+		}else if(identifier[0] == 3){
+			drop = 2;
+
+		}else if(identifier[0] == 4){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+			drop = 3;
+
+		}
+
+		do{
+		}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(500);
+
+		//deviceを下ろす
+		act_tsk(DROP_TASK);
+		slp_tsk();
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//Device 0行1列目の読み取り
+		h_rgb = 0;
+		ev3_sta_cyc(HT1RGB);
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		if(h_rgb > 100){
+			device[0] = 1;
+			ev3_speaker_play_tone(1174.66, 200);
+		}
+
+		ev3_stp_cyc(HT1RGB);
+
+		//左に曲がる
+		act_tsk(LEFT_TASK);
+		slp_tsk();
+
+	}
+
+	//Cableを下ろす
+	//色まで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 140);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを下ろす
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 700);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	if(device[0] == 2){
+		//Device 0行1列目の回収
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//色まで進む
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//回す
+		if(identifier[0] == 1){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 4;
+
+		}else if(identifier[0] == 2){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, -50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 1;
+
+		}else if(identifier[0] == 3){
+			drop = 2;
+
+		}else if(identifier[0] == 4){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+			drop = 3;
+
+		}
+
+		do{
+		}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(500);
+
+		//deviceを下ろす
+		act_tsk(DROP_TASK);
+		slp_tsk();
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 30;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		for (k = 0; k < 2; k++) {
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}else{
+		if(device[0] == 1){
+			//Device 0行0列目の回収
+			//ラインまで進む
+			gain_rate = two_slow;
+			power = slows;
+			ev3_sta_cyc(TRACE);
+
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			gain_rate = two_slow;
+			power = slow;
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+			ev3_stp_cyc(TRACE);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//左に曲がる
+			pturn = 30;
+			act_tsk(LEFT_TASK);
+			slp_tsk();
+
+			//ラインまで進む
+			gain_rate = two_slow;
+			power = slows;
+			ev3_sta_cyc(TRACE);
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			//前に進む
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+			gain_rate = two_slow;
+			power = slow;
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+			ev3_stp_cyc(TRACE);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//右を向く
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_set_power(EV3_PORT_A, slows);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//deviceを回収
+			gain_rate = two_slow;
+			power = slow;
+			ev3_sta_cyc(TRACE);
+
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+			ev3_motor_reset_counts(EV3_PORT_C);
+			ev3_motor_set_power(EV3_PORT_C, 30);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+			ev3_motor_stop(EV3_PORT_C, true);
+
+			ev3_stp_cyc(TRACE);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//ラインまで下がる
+			ev3_motor_set_power(EV3_PORT_A, slows);
+			ev3_motor_set_power(EV3_PORT_D, slows * -1);
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//方向転換
+			pturn = 20;
+			act_tsk(ROTATION_TASK);
+			slp_tsk();
+		}else{
+			//Device 0行1列目の回収
+			//ラインまで進む
+			gain_rate = two_slow;
+			power = slow;
+			ev3_sta_cyc(TRACE);
+
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+			ev3_motor_reset_counts(EV3_PORT_C);
+			ev3_motor_set_power(EV3_PORT_C, 30);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+			ev3_motor_stop(EV3_PORT_C, true);
+
+			ev3_stp_cyc(TRACE);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//ラインまで下がる
+			ev3_motor_set_power(EV3_PORT_A, slows);
+			ev3_motor_set_power(EV3_PORT_D, slows * -1);
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//進む
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			ev3_motor_set_power(EV3_PORT_A, slow * -1);
+			ev3_motor_set_power(EV3_PORT_D, slow);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//左に曲がる
+			pturn = 20;
+			act_tsk(LEFT_TASK);
+			slp_tsk();
+
+			//ラインまで進む
+			gain_rate = two_slow;
+			power = slows;
+			ev3_sta_cyc(TRACE);
+
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			gain_rate = two_slow;
+			power = slow;
+
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+			ev3_stp_cyc(TRACE);
+
+			ev3_motor_stop(EV3_PORT_A, true);
+			ev3_motor_stop(EV3_PORT_D, true);
+			tslp_tsk(200);
+
+			//左に曲がる
+			pturn = 20;
+			act_tsk(LEFT_TASK);
+			slp_tsk();
+
+
+		}
+		//青に入る
+		//色まで進む
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 25);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		//回す
+		if(identifier[3] == 1){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 4;
+
+		}else if(identifier[3] == 2){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, -50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 1;
+
+		}else if(identifier[3] == 3){
+			drop = 2;
+
+		}else if(identifier[3] == 4){
+			ev3_motor_reset_counts(EV3_PORT_B);
+			ev3_motor_set_power(EV3_PORT_B, 50);
+			do{
+			}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+			ev3_motor_stop(EV3_PORT_B, true);
+
+			drop = 3;
+
+		}
+
+		do{
+		}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(500);
+
+		//deviceを下ろす
+		act_tsk(DROP_TASK);
+		slp_tsk();
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}
+
+	//右に曲がる
+	pturn = 30;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進みながらアームを下ろす
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 500);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 70);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_D, true);
+	/*
+	ev3_motor_stop(EV3_PORT_A, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//Device 1行0列目の読み取り
+	h_rgb = 0;
+	ev3_sta_cyc(HT1RGB);
+
+	//ケーブルまで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 90);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	if(h_rgb > 100){
+		device[1] = 0;
+		ev3_speaker_play_tone(1174.66, 200);
+	}
+
+	ev3_stp_cyc(HT1RGB);
+
+	//ケーブルを拾う
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 140);
+
+	//ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 530);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	if(device[1] == 0){
+		//Device 1行1列目の回収
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		for (k = 0; k < 2; k++) {
+			//ラインまで進む
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			//前に進む
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+		}
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//左を向く
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_D) <= 500);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//deviceを回収
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_A, slow * -1);
+		ev3_motor_set_power(EV3_PORT_D, slow);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		ev3_stp_cyc(TRACE);
+
+	}else{
+		//Device 1行0列目の回収
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//左を向く
+		ev3_motor_reset_counts(EV3_PORT_D);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_D) <= 500);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//deviceを回収
+		gain_rate = two_slow;
+		power = slow;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+		ev3_motor_reset_counts(EV3_PORT_C);
+		ev3_motor_set_power(EV3_PORT_C, 30);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+		ev3_motor_stop(EV3_PORT_C, true);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//ラインまで下がる
+		ev3_motor_set_power(EV3_PORT_A, slows);
+		ev3_motor_set_power(EV3_PORT_D, slows * -1);
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		for (k = 0; k < 2; k++) {
+			//ラインまで進む
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+			ev3_speaker_play_tone(1174.66, 200);
+
+			//前に進む
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+		}
+
+		ev3_stp_cyc(TRACE);
+
+	}
+
+	//ケーブルのところからでているラインを避ける
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE2);
+
+	//ラインまで進む
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE2);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 260);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 50);//25
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[1] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 3;
+
+	}else if(identifier[1] == 2){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}else if(identifier[1] == 3){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[1] == 4){
+		drop = 2;
+
+	}
+
+	for (k = 0; k < 4; k++) {
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	}
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+	//左に曲がる
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//ラインまで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	gain_rate = two_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	for (k = 0; k < 2; k++) {
+		if(k == 1){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 1){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	}
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを下ろす
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 700);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	//4つ目のdeviceに向かう
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//2つラインを進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE2);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE2);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//4つ目のdeviceに向かう
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	for (k = 0; k < 5; k++) {
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 4){
+			break;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	ev3_stp_cyc(TRACE2);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//ケーブルのところからでているラインを避ける
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200000);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	//右を向く
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//deviceを回収
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//赤に入る
+	if(device[0] == 1){
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+	}else{
+		//後ろに曲がる
+		pturn = 20;
+		act_tsk(ROTATION_TASK);
+		slp_tsk();
+
+	}
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 25);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[0] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}else if(identifier[0] == 2){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[0] == 3){
+		drop = 2;
+
+	}else if(identifier[0] == 4){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+		drop = 3;
+
+	}
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+
+
+
+
+
+
+
+
+
+
+
+	//1列目に向かう
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	for (k = 0; k < 5; k++) {
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	ev3_stp_cyc(TRACE2);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//deviceをよむ
+	ev3_sta_cyc(HT1RGB);
+
+	device[0] = 0;
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	for (k = 1; k < 3; k++) {
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+
+		if(rgb.r > 100){
+			device[0] = k;
+
+			ev3_speaker_play_tone(1174.66, 200);
+		}else{
+			ev3_stp_cyc(HT1RGB);
+
+			break;
+		}
+
+		//ラインを超える
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+	gain_rate = two_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右を向く
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//deviceを回収
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//赤に入る
+	if(device[0] == 1){
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//右に曲がる
+		pturn = 20;
+		act_tsk(RIGHT_TASK);
+		slp_tsk();
+
+	}else{
+		//後ろに曲がる
+		pturn = 20;
+		act_tsk(ROTATION_TASK);
+		slp_tsk();
+
+	}
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 25);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[0] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}else if(identifier[0] == 2){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[0] == 3){
+		drop = 2;
+
+	}else if(identifier[0] == 4){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+		drop = 3;
+
+	}
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//deviceをよむ
+	if(device[0] == 0){
+		ev3_sta_cyc(HT1RGB);
+
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		for (k = 2; k < 4; k++) {
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+
+			if(rgb.r > 100){
+				device[0] = k;
+
+				ev3_speaker_play_tone(1174.66, 200);
+			}else{
+				ev3_stp_cyc(HT1RGB);
+
+				break;
+			}
+
+			//ラインを超える
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		}
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}else{
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//ラインを超える
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+	}
+
+	//右を向く
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//deviceを回収
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//青に入る
+	if(device[0] == 0){
+		device[0] = 3;
+
+		//左に曲がる
+		pturn = 20;
+		act_tsk(LEFT_TASK);
+		slp_tsk();
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+		//左に曲がる
+		pturn = 20;
+		act_tsk(LEFT_TASK);
+		slp_tsk();
+
+	}else{
+		//後ろに曲がる
+		pturn = 20;
+		act_tsk(ROTATION_TASK);
+		slp_tsk();
+
+	}
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 25);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[3] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}else if(identifier[3] == 2){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[3] == 3){
+		drop = 2;
+
+	}else if(identifier[3] == 4){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 3;
+
+	}
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 30;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	//ラインまで下がる
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進みながらアームを下ろす
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 500);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 70);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_D, true);
+	/*
+	ev3_motor_stop(EV3_PORT_A, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルまで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 90);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを拾う
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 140);
+
+	//ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 530);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 135);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//2つラインを進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを下ろす
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 700);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	gain_rate = two_slow;
+	power = slow;
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 30;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//2つラインを進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//進みながらアームを下ろす
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 500);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 70);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	/*
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 295);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルまで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 90);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを拾う
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -20);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 140);
+
+	//ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 530);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 180);
+	ev3_motor_stop(EV3_PORT_C, true);
+	*/
+
+	//方向転換
+	pturn = 20;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 295);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	/*
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 295);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	for (k = 0; k < 5; k++) {
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	}
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 2630);
+
+	gain_rate = one_slow;
+	power = slows;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 200);
+
+	gain_rate = one_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	//方向転換
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	for (k = 0; k < 2; k++) {
+		if(k == 1){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 1){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	}
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	/*
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 475);
+
+	gain_rate = one_slow;
+	power = slows;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 200);
+
+	gain_rate = one_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	//方向転換
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ケーブルを下ろす
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 700);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, 80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	//下がる
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow);
+	ev3_motor_set_power(EV3_PORT_D, slow * -1);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_D) - ev3_motor_get_counts(EV3_PORT_A)) / 2 <= 100);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_reset_counts(EV3_PORT_B);
+	ev3_motor_set_power(EV3_PORT_B, -80);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 600);
+	ev3_motor_stop(EV3_PORT_B, true);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, -30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) * -1 <= 350);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(ROTATION_TASK);
+	slp_tsk();
+
+	//2行目のdeviceに向かう
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//方向転換
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//2つラインを進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE2);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	//ラインを超える
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE2);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//2列目のdeviceに向かう
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	for (k = 0; k < 5; k++) {
+		if(k == 4){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 4){
+			break;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	ev3_stp_cyc(TRACE2);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//ケーブルのところからでているラインを避ける
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	//deviceをよむ
+	ev3_sta_cyc(HT1RGB);
+
+	device[1] = 0;
+
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	for (k = 1; k < 3; k++) {
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+
+		if(rgb.r > 100){
+			device[1] = k;
+
+			ev3_speaker_play_tone(1174.66, 200);
+		}else{
+			ev3_stp_cyc(HT1RGB);
+
+			break;
+		}
+
+		//ラインを超える
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+	gain_rate = two_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右を向く
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//deviceを回収
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//緑色に入る
+	if(device[1] == 1){
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+	}
+
+	//ケーブルからでているラインまで進む
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE2);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE2);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 260);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 50);//25
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[1] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 3;
+
+	}else if(identifier[1] == 2){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}else if(identifier[1] == 3){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[1] == 4){
+		drop = 2;
+
+	}
+
+	/*
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 2060);
+
+	gain_rate = one_slow;
+	power = slows;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 200);
+
+	gain_rate = one_slow;
+	power = slow;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+	*/
+
+	for (k = 0; k < 4; k++) {
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_2) >= black || ev3_color_sensor_get_reflect(EV3_PORT_3) >= white);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	}
+
+	ev3_stp_cyc(TRACE3);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+	//右に曲がる
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	//４つ目のdeviceに向かう
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	for (k = 0; k < 4; k++) {
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 3){
+			break;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	ev3_stp_cyc(TRACE2);
+
+	//前に進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 30;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//ケーブルのところからでているラインを避ける
+	gain_rate = one_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 100);
+
+	ev3_stp_cyc(TRACE3);
+
+	//ラインまで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_stp_cyc(TRACE);
+
+	//deviceをよむ
+	if(device[1] == 0){
+		ev3_sta_cyc(HT1RGB);
+
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		for (k = 2; k < 4; k++) {
+			do{
+			}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+
+			if(rgb.r > 100){
+				device[0] = k;
+
+				ev3_speaker_play_tone(1174.66, 200);
+			}else{
+				ev3_stp_cyc(HT1RGB);
+
+				break;
+			}
+
+			//ラインを超える
+			ev3_motor_reset_counts(EV3_PORT_A);
+			ev3_motor_reset_counts(EV3_PORT_D);
+
+			do{
+			}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		}
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+
+	}else{
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//ラインを超える
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		//前に進む
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 165);
+
+		gain_rate = two_slow;
+		power = slow;
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+		ev3_motor_stop(EV3_PORT_A, true);
+		ev3_motor_stop(EV3_PORT_D, true);
+		tslp_tsk(200);
+	}
+
+	//右を向く
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) * -1 <= 500);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//deviceを回収
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 250);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 30);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 200);
+
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//ラインまで下がる
+	ev3_motor_set_power(EV3_PORT_A, slows);
+	ev3_motor_set_power(EV3_PORT_D, slows * -1);
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 20;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//黄色に入る
+	if(device[1] == 0){
+		device[1] = 3;
+
+		//ラインまで進む
+		gain_rate = two_slow;
+		power = slows;
+		ev3_sta_cyc(TRACE);
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+		ev3_stp_cyc(TRACE);
+
+	}
+
+	//ラインまで進む
+	gain_rate = two_slow;
+	power = slows;
+	ev3_sta_cyc(TRACE3);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE3);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	//左に曲がる
+	pturn = 20;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//進む
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE2);
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+
+	ev3_motor_reset_counts(EV3_PORT_C);
+	ev3_motor_set_power(EV3_PORT_C, 50);//25
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_C) <= 150);
+	ev3_motor_stop(EV3_PORT_C, true);
+
+	//回す
+	if(identifier[2] == 1){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, -50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) * -1 <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 1;
+
+	}else if(identifier[2] == 2){
+		drop = 2;
+
+	}else if(identifier[2] == 3){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 150);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 3;
+
+	}else if(identifier[2] == 4){
+		ev3_motor_reset_counts(EV3_PORT_B);
+		ev3_motor_set_power(EV3_PORT_B, 50);
+		do{
+		}while(ev3_motor_get_counts(EV3_PORT_B) <= 300);
+		ev3_motor_stop(EV3_PORT_B, true);
+
+		drop = 4;
+
+	}
+
+	for (k = 0; k < 4; k++) {
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slows;
+		}
+
+		do{
+		}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+		ev3_speaker_play_tone(1174.66, 200);
+
+		if(k == 3){
+			gain_rate = one_slow;
+			power = slow;
+		}
+
+		ev3_motor_reset_counts(EV3_PORT_A);
+		ev3_motor_reset_counts(EV3_PORT_D);
+		do{
+		}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	}
+
+	ev3_stp_cyc(TRACE2);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+
+	//右に曲がる
+	pturn = 20;
+	act_tsk(LEFT_TASK);
+	slp_tsk();
+
+	//色まで進む
+	gain_rate = two_slow;
+	power = slow;
+	ev3_sta_cyc(TRACE);
+
+	do{
+	}while(ev3_color_sensor_get_color(EV3_PORT_4) == 6);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(500);
+
+	//deviceを下ろす
+	act_tsk(DROP_TASK);
+	slp_tsk();
+
+	//右に曲がる
+	act_tsk(RIGHT_TASK);
+	slp_tsk();
+
+	gain_rate = one_fast;
+	power = fast;
+	ev3_sta_cyc(TRACE3);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	gain_rate = one_slow;
+	power = slows;
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 135);
+
+	do{
+	}while(ev3_color_sensor_get_reflect(EV3_PORT_4) >= black);
+	ev3_speaker_play_tone(1174.66, 200);
+
+	ev3_stp_cyc(TRACE3);
+
+	//進む
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_A, slow * -1);
+	ev3_motor_set_power(EV3_PORT_D, slow);
+	do{
+	}while((ev3_motor_get_counts(EV3_PORT_A) - ev3_motor_get_counts(EV3_PORT_D)) / 2 <= 175);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+
+	//うねる
+	ev3_motor_reset_counts(EV3_PORT_D);
+	ev3_motor_set_power(EV3_PORT_D, slows);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_D) * -1 <= 170);
+
+	ev3_motor_stop(EV3_PORT_D, true);
+	/*
+	ev3_motor_stop(EV3_PORT_A, true);
+	tslp_tsk(200);
+	*/
+
+	ev3_motor_reset_counts(EV3_PORT_A);
+	ev3_motor_set_power(EV3_PORT_A, slows * -1);
+	do{
+	}while(ev3_motor_get_counts(EV3_PORT_A) <= 170);
+
+	ev3_motor_stop(EV3_PORT_A, true);
+	ev3_motor_stop(EV3_PORT_D, true);
+	tslp_tsk(200);
+
+	ext_tsk();
+}
